@@ -10,7 +10,7 @@ import (
 
 var count = 0
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func lb(w http.ResponseWriter, r *http.Request) {
 	hosts := [3]string{"http://localhost:8080", "http://localhost:8081", "http://localhost:8082"}
 
 	count = (count + 1) % 3
@@ -30,7 +30,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 func createServer(port int) *http.Server {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", handler)
+	mux.HandleFunc("/", lb)
 
 	server := http.Server{
 		Addr:    fmt.Sprintf(":%v", port),
@@ -41,9 +41,9 @@ func createServer(port int) *http.Server {
 }
 
 func main() {
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/", lb)
 
-	log.Println("Load Balancer ON")
+	log.Println("load balancer started")
 
 	server := createServer(6969)
 	server.ListenAndServe()

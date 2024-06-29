@@ -4,21 +4,17 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"sync"
 )
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	var sb strings.Builder
-
-	fmt.Fprintf(&sb, "\nHello from Backend Server")
-	fmt.Fprint(w, sb.String())
+func hello(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprint(w, "hello from backend server")
 }
 
 func createServer(port int) *http.Server {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", handler)
+	mux.HandleFunc("/", hello)
 
 	server := http.Server{
 		Addr:    fmt.Sprintf(":%v", port),
@@ -32,9 +28,7 @@ func main() {
 	wg := new(sync.WaitGroup)
 	wg.Add(3)
 
-	http.HandleFunc("/", handler)
-
-	log.Println("Backend Servers ON")
+	log.Println("backend servers started")
 
 	go func() {
 		server := createServer(8080)
