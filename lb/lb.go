@@ -9,28 +9,38 @@ import (
 	"sync/atomic"
 )
 
-func lb(w http.ResponseWriter, r *http.Request, count *uint32) {
-	hosts := [3]string{"http://localhost:8080", "http://localhost:8081", "http://localhost:8082"}
-
-	idx := atomic.AddUint32(count, 1) % 3
-
-	log.Printf(hosts[idx])
-
-	target, err := url.Parse(hosts[idx])
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	proxy := httputil.NewSingleHostReverseProxy(target)
-
-	proxy.ServeHTTP(w, r)
+type Server struct {
+	addr  string
+	proxy *httputil.ReverseProxy
 }
 
-func createServer(port int, count *uint32) *http.Server {
+func newServer(addr string) Server {
+	serverurl, err := url.Parse(addr)
+	if err != nil {
+		log.Fatal("Error converting address into url")
+	}
+
+	return Server{
+		addr:  addr,
+		proxy: httputil.NewSingleHostReverseProxy(serverurl),
+	}
+}
+
+func lb(w http.ResponseWriter, r *http.Request, count *uint32, servers []Server) {
+	idx := atomic.AddUint32(count, 1) % 3
+
+	chosenServer := servers[idx]
+
+	log.Printf("%v", chosenServer)
+
+	chosenServer.proxy.ServeHTTP(w, r)
+}
+
+func createServer(port int, count *uint32, servers []Server) *http.Server {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		lb(w, r, count)
+		lb(w, r, count, servers)
 	})
 
 	server := http.Server{
@@ -44,8 +54,14 @@ func createServer(port int, count *uint32) *http.Server {
 func main() {
 	var count uint32 = 0
 
+	servers := []Server{
+		newServer("http://localhost:8080"),
+		newServer("http://localhost:8081"),
+		newServer("http://localhost:8082"),
+	}
+
 	log.Println("load balancer started")
 
-	server := createServer(6969, &count)
+	server := createServer(6969, &count, servers)
 	server.ListenAndServe()
 }
