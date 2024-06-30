@@ -6,18 +6,17 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync/atomic"
 )
 
-var count = 0
-
-func lb(w http.ResponseWriter, r *http.Request) {
+func lb(w http.ResponseWriter, r *http.Request, count *uint32) {
 	hosts := [3]string{"http://localhost:8080", "http://localhost:8081", "http://localhost:8082"}
 
-	count = (count + 1) % 3
+	idx := atomic.AddUint32(count, 1) % 3
 
-	log.Printf(hosts[count])
+	log.Printf(hosts[idx])
 
-	target, err := url.Parse(hosts[count])
+	target, err := url.Parse(hosts[idx])
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -27,10 +26,12 @@ func lb(w http.ResponseWriter, r *http.Request) {
 	proxy.ServeHTTP(w, r)
 }
 
-func createServer(port int) *http.Server {
+func createServer(port int, count *uint32) *http.Server {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", lb)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		lb(w, r, count)
+	})
 
 	server := http.Server{
 		Addr:    fmt.Sprintf(":%v", port),
@@ -41,10 +42,10 @@ func createServer(port int) *http.Server {
 }
 
 func main() {
-	http.HandleFunc("/", lb)
+	var count uint32 = 0
 
 	log.Println("load balancer started")
 
-	server := createServer(6969)
+	server := createServer(6969, &count)
 	server.ListenAndServe()
 }
